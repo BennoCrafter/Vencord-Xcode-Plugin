@@ -9,9 +9,10 @@ import { Devs, IS_MAC } from "@utils/constants";
 import definePlugin, { OptionType, PluginNative, ReporterTestable } from "@utils/types";
 import { Activity, ActivityAssets, ActivityButton } from "@vencord/discord-types";
 import { ActivityFlags, ActivityStatusDisplayType, ActivityType } from "@vencord/discord-types/enums";
-import { ApplicationAssetUtils, FluxDispatcher, Forms } from "@webpack/common";
+import { ApplicationAssetUtils, FluxDispatcher } from "@webpack/common";
 
-const Native = VencordNative.pluginHelpers.AppleMusicRichPresence as PluginNative<typeof import("./native")>;
+const Native = VencordNative.pluginHelpers.XcodeRichPresence as PluginNative<typeof import("./native")>;
+let xcodeStartTimestamp: number | null = null;
 
 export interface XcodeProjectData {
     workspace: string;
@@ -92,52 +93,50 @@ export default definePlugin({
     stop() {
         clearInterval(this.updateInterval);
         FluxDispatcher.dispatch({ type: "LOCAL_ACTIVITY_UPDATE", activity: null });
+        xcodeStartTimestamp = null;
     },
 
-    updatePresence() {
-        this.getActivity().then(activity => { setActivity(activity); });
+    async updatePresence() {
+        const activity = await this.getActivity();
+        setActivity(activity);
     },
 
     async getActivity(): Promise<Activity | null> {
         const xcodeProjectData = await Native.fetchXcodeProjectData();
-        if (!xcodeProjectData) return null;
+        if (!xcodeProjectData) {
+            xcodeStartTimestamp = null; // reset when no project
+            return null;
+        }
 
-        const [largeImageAsset, smallImageAsset] = await Promise.all([
-            getImageAsset(settings.store.largeImageType, xcodeProjectData),
-            getImageAsset(settings.store.smallImageType, xcodeProjectData)
-        ]);
+        // Initialize start timestamp only once
+        if (!xcodeStartTimestamp) {
+            xcodeStartTimestamp = Date.now();
+        }
 
-        const assets: ActivityAssets = {};
-
-
-        assets.large_text = "Xcode";
-        assets.small_text = `In ${xcodeProjectData.workspace}\n${xcodeProjectData.file != undefined ? `Working on: ${xcodeProjectData.file}` : ""}`;
-        assets.large_image = largeImageAsset;
+        const assets: ActivityAssets = {
+            large_text: "Xcode",
+            small_text: `In ${xcodeProjectData.workspace}${xcodeProjectData.file ? `\nWorking on: ${xcodeProjectData.file}` : ""}`,
+        };
 
         const buttons: ActivityButton[] = [];
-
         if (settings.store.enableButtons) {
-            //buttons.push({
-            //    label: "Listen on Apple Music",
-            //    url: trackData.appleMusicLink,
-            //});
+            // add buttons if needed
         }
 
         return {
             application_id: applicationId,
-
             name: "Xcode",
-            details: `In ${xcodeProjectData.workspace}\n${xcodeProjectData.file != undefined ? `Working on: ${xcodeProjectData.file}` : ""}`,
+            details: `In ${xcodeProjectData.workspace}`,
+            state: xcodeProjectData.file ? `Working on: ${xcodeProjectData.file}` : "",
             assets,
-
             buttons: buttons.length ? buttons.map(v => v.label) : undefined,
             metadata: buttons.length ? { button_urls: buttons.map(v => v.url) } : undefined,
-
             type: ActivityType.PLAYING,
+            timestamps: { start: xcodeStartTimestamp },
             status_display_type: {
-                "off": ActivityStatusDisplayType.NAME,
-                "artist": ActivityStatusDisplayType.STATE,
-                "track": ActivityStatusDisplayType.DETAILS
+                off: ActivityStatusDisplayType.NAME,
+                artist: ActivityStatusDisplayType.STATE,
+                track: ActivityStatusDisplayType.DETAILS
             }[settings.store.statusDisplayType],
             flags: ActivityFlags.INSTANCE,
         };

@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import { VENCORD_USER_AGENT } from "@shared/vencordUserAgent";
 import { execFile } from "child_process";
 import { promisify } from "util";
 
@@ -36,7 +35,7 @@ export async function fetchXcodeProjectData(): Promise<XcodeProjectData | null> 
 
     return {
         workspace: workspaceParsed,
-        file: fileName == currentWorkspaceName ? undefined : fileName
+        file: fileName === currentWorkspaceName ? undefined : fileName
     };
 }
 
