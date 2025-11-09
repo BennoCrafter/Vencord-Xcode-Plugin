@@ -35,7 +35,8 @@ export async function fetchXcodeProjectData(): Promise<XcodeProjectData | null> 
 
     return {
         workspace: workspaceParsed,
-        file: fileName === currentWorkspaceName ? undefined : fileName
+        file: fileName === currentWorkspaceName ? undefined : fileName,
+        fileSuffix: fileName === currentWorkspaceName ? undefined : fileName.split(".").pop(),
     };
 }
 

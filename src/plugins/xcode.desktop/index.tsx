@@ -17,13 +17,14 @@ let xcodeStartTimestamp: number | null = null;
 export interface XcodeProjectData {
     workspace: string;
     file?: string;
+    fileSuffix?: string;
 }
 
 interface AssetImageOption {
     showFileSuffixImage: boolean;
 }
 
-const applicationId = "1239490006054207550";
+const applicationId = "1436859626644570125";
 
 function setActivity(activity: Activity | null) {
     FluxDispatcher.dispatch({
@@ -68,13 +69,20 @@ const settings = definePluginSettings({
 });
 
 
-function getImageAsset(type: AssetImageOption, data: XcodeProjectData) {
-    const source = ""; // TODO
-
-    if (!source) return undefined;
-
+function getImageAsset(source: string, data: XcodeProjectData) {
     return ApplicationAssetUtils.fetchAssetIds(applicationId, [source]).then(ids => ids[0]);
 }
+
+function getSmallImageAsset(data: XcodeProjectData) {
+    return getImageAsset(, data);
+}
+
+function getLargeImageAsset(data: XcodeProjectData) {
+    return getImageAsset(settings.store.largeImageType, data);
+}
+
+
+
 
 export default definePlugin({
     name: "XcodeRichPresence",
@@ -108,14 +116,20 @@ export default definePlugin({
             return null;
         }
 
-        // Initialize start timestamp only once
         if (!xcodeStartTimestamp) {
             xcodeStartTimestamp = Date.now();
         }
 
+        const [largeImageAsset, smallImageAsset] = await Promise.all([
+            getImageAsset(settings.store.largeImageType, trackData),
+            getImageAsset("", trackData)
+        ]);
+
         const assets: ActivityAssets = {
-            large_text: "Xcode",
-            small_text: `In ${xcodeProjectData.workspace}${xcodeProjectData.file ? `\nWorking on: ${xcodeProjectData.file}` : ""}`,
+            small_text: "Xcode",
+            large_text: `${xcodeProjectData.fileSuffix ? `.${xcodeProjectData.fileSuffix} file` : "Xcode Project"}`,
+            small_image: smallImageAsset,
+            large_image: largeImageAsset
         };
 
         const buttons: ActivityButton[] = [];
