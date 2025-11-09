@@ -81,15 +81,6 @@ function setActivity(activity: Activity | null) {
 }
 
 const settings = definePluginSettings({
-    statusDisplayType: {
-        description: "Show the track / artist name in the member list",
-        type: OptionType.SELECT,
-        options: [
-            { label: "Don't show (shows generic listening message)", value: "off", default: true },
-            { label: "Show artist name", value: "artist" },
-            { label: "Show track name", value: "track" },
-        ],
-    },
     refreshInterval: {
         type: OptionType.SLIDER,
         description: "The interval between activity refreshes (seconds)",
@@ -206,11 +197,7 @@ export default definePlugin({
             metadata: buttons.length ? { button_urls: buttons.map(v => v.url) } : undefined,
             type: ActivityType.PLAYING,
             timestamps: { start: xcodeStartTimestamp },
-            status_display_type: {
-                off: ActivityStatusDisplayType.NAME,
-                artist: ActivityStatusDisplayType.STATE,
-                track: ActivityStatusDisplayType.DETAILS,
-            }[settings.store.statusDisplayType],
+            status_display_type: ActivityStatusDisplayType.NAME,
             flags: ActivityFlags.INSTANCE,
         };
     },
