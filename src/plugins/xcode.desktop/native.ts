@@ -7,37 +7,44 @@
 import { execFile } from "child_process";
 import { promisify } from "util";
 
-import type { XcodeProjectData } from ".";
+import { XcodeProjectData } from ".";
 
 const exec = promisify(execFile);
 
-async function applescript(cmds: string[]) {
+async function applescript(cmds: string[]): Promise<string> {
     const { stdout } = await exec("osascript", cmds.map(c => ["-e", c]).flat());
-    return stdout;
+    return stdout.trim();
 }
 
-
 export async function fetchXcodeProjectData(): Promise<XcodeProjectData | null> {
+    // Check if Xcode is running
     try {
-        await exec("pgrep", ["^Xcode$"]);
-    } catch (error) {
+        await exec("pgrep", ["-x", "Xcode"]);
+    } catch {
         return null;
     }
 
-    const currentWorkspaceName: string = await applescript(['tell application "Xcode"', "get active workspace document", "end tell"])
-        .then(out => out.trim());
+    // Get the active workspace document
+    const currentWorkspaceName = await applescript([
+        'tell application "Xcode"',
+        'if exists active workspace document then name of active workspace document else ""',
+        "end tell"
+    ]);
 
-    const workspaceFileName: string = await applescript(['tell application "Xcode"', "get name of windows whose index is 1", "end tell"])
-        .then(out => out.trim());
+    if (!currentWorkspaceName) return null;
 
-    const parts: string[] = workspaceFileName.split(/—|–|-/).map(p => p.trim()).filter(Boolean);
-    const [workspaceParsed, fileName]: [string, string] = [parts[0] ?? "", parts[1] ?? ""]; // workspaceParsed is the same as currentWorkspaceName but without .xcodeproj suffix
+    // Get the front window title (usually file or workspace name)
+    const windowTitle = await applescript([
+        'tell application "Xcode"',
+        'if (count of windows) > 0 then name of window 1 else ""',
+        "end tell"
+    ]);
 
-    return {
-        workspace: workspaceParsed,
-        file: fileName === currentWorkspaceName ? undefined : fileName,
-        fileSuffix: fileName === currentWorkspaceName ? undefined : fileName.split(".").pop(),
-    };
+    const parts = windowTitle.split(/—|–|-/).map(p => p.trim()).filter(Boolean);
+    const [workspaceParsed, fileName] = [parts[0] ?? currentWorkspaceName, parts[1] ?? ""];
+
+    return new XcodeProjectData(
+        workspaceParsed,
+        fileName !== currentWorkspaceName ? fileName : undefined
+    );
 }
-
-
